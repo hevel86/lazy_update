@@ -1,5 +1,5 @@
 ---
-- hosts: brainiac
+- hosts: "{{ target_hosts }}"
   become: true
   tasks:
     - name: Update APT package cache
