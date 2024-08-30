@@ -1,0 +1,6 @@
+---
+- hosts: "{{ target_hosts }}"
+  become: true
+  tasks:
+    - name: Update Pi-hole
+      command:  pihole -up
