@@ -2,7 +2,15 @@
 - hosts: brainiac
   become: true
   tasks:
-    - name: Update Debian/Ubuntu packages
+    - name: Update APT package cache
+      apt:
+        update_cache: yes
+
+    - name: Upgrade all APT packages (dist-upgrade)
       apt:
         upgrade: dist
-        update_cache: yes
+
+    - name: Clean up unnecessary packages
+      apt:
+        autoremove: yes
+        autoclean: yes
