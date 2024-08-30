@@ -1,6 +1,10 @@
 ---
-- name: Update Debian/Ubuntu packages
+- hosts: brainiac
   become: true
-  apt:
-    upgrade: dist
-    update_cache: yes
+  tasks:
+    - name: Update Debian/Ubuntu packages
+      apt:
+        upgrade: dist
+        update_cache: yes
+
+---
