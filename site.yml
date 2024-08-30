@@ -1,7 +1,6 @@
 ---
-- hosts: brainiac
+- name: Update Debian/Ubuntu packages
   become: true
-  tasks:
-    - name: Print OS info
-      ansible.builtin.package:
-        name: apache2
+  apt:
+    upgrade: dist
+    update_cache: yes
