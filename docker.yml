@@ -1,32 +1,13 @@
 ---
-- name: Pull and restart Docker Compose stack
+- name: Pull and restart Docker Compose stacks
   hosts: all
   become: yes
-  vars:
-    ansible_python_interpreter: /usr/bin/python3
-    compose_dir: "/path/to/your/compose/stack"  # Replace with your actual directory
   collections:
     - community.docker
   tasks:
-    - name: Ensure pip is installed
-      package:
-        name: python3-pip
-        state: present
-
-    - name: Install Docker SDK for Python
-      raw: |
-        {{ ansible_python_interpreter }} -m pip install docker
-
-    - name: Verify docker module installation
-      ansible.builtin.command: "{{ ansible_python_interpreter }} -c 'import docker; print(docker.__version__)'"
-      register: docker_version
-
-#    - name: Show Docker SDK version
-#      debug:
-#        msg: "Docker SDK version: {{ docker_version.stdout }}"
-
-    - name: Update and restart Docker Compose stack
+    - name: Update and restart Docker Compose stacks
       community.docker.docker_compose:
-        project_src: "{{ compose_dir }}"
+        project_src: "{{ item }}"
         pull: yes
         state: present
+#      loop: "{{ compose_dirs }}"
