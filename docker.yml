@@ -1,33 +1,25 @@
 ---
-- name: Update and restart Docker Compose stack(s)
-  hosts: all
-  become: yes
-  collections:
-    - community.docker
+- name: Run Docker Compose Pull and Up
+  hosts: {{ target_hosts }}  # Specify your inventory group or host here
+  become: true
+
   tasks:
-    - name: Ensure pip is installed
-      package:
-        name: python3-pip
-        state: present
-
-    - name: Install Docker SDK for Python
-      pip:
+    - name: Ensure Docker is installed
+      ansible.builtin.package:
         name: docker
-        executable: /usr/bin/pip3
         state: present
 
-    # - name: Verify Docker SDK installation
-    #   command: /usr/bin/python3 -c "import docker; print(docker.__version__)"
-    #   register: docker_version
-    #   changed_when: false
-
-    # - name: Show Docker SDK version
-    #   debug:
-    #     msg: "Docker SDK version: {{ docker_version.stdout }}"
-
-    - name: Update and restart Docker Compose stack(s)
-      community.docker.docker_compose:
-        project_src: "{{ item }}"
-        pull: yes
+    - name: Ensure Docker Compose is installed
+      ansible.builtin.package:
+        name: docker-compose
         state: present
-      loop: "{{ compose_dirs }}"
+
+    - name: Pull latest images with Docker Compose
+      ansible.builtin.command:
+        cmd: docker compose pull
+        chdir: /path/to/your/docker-compose-directory  # Change to your compose directory
+
+    - name: Start containers with Docker Compose
+      ansible.builtin.command:
+        cmd: docker compose up -d
+        chdir: /home/michael/docker/traefik2  # Change to your compose directory
