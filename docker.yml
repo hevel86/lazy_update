@@ -21,9 +21,9 @@
       ansible.builtin.command: "{{ ansible_python_interpreter }} -c 'import docker; print(docker.__version__)'"
       register: docker_version
 
-    - name: Show Docker SDK version
-      debug:
-        msg: "Docker SDK version: {{ docker_version.stdout }}"
+#    - name: Show Docker SDK version
+#      debug:
+#        msg: "Docker SDK version: {{ docker_version.stdout }}"
 
     - name: Update and restart Docker Compose stack
       community.docker.docker_compose:
