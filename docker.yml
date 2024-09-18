@@ -25,11 +25,11 @@
         cmd: docker compose pull
         args:
           chdir: "{{ item }}"
-      loop: "{{ docker_compose_dirs }}"
+      loop: "{{ compose_dirs }}"
 
     - name: Start containers for each directory
       ansible.builtin.command:
         cmd: docker compose up -d
         args:
           chdir: "{{ item }}"
-      loop: "{{ docker_compose_dirs }}"
+      loop: "{{ compose_dirs }}"
