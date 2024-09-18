@@ -1,14 +1,13 @@
 ---
-- hosts: "{{ target_hosts }}"
-  become: true
+- name: Pull and restart Docker Compose stacks
+  hosts: {{ target_hosts }}  # Replace 'all' with your specific host group if needed
+  become: yes
+  collections:
+    - community.docker
   tasks:
-    - name: Pull and restart Docker Compose stacks
-      collections:
-        - community.docker
-      tasks:
-        - name: Update and restart Docker Compose stacks
-          community.docker.docker_compose:
-            project_src: "{{ item }}"
-            pull: yes
-            state: present
-          loop: "{{ compose_dirs }}"
+    - name: Update and restart Docker Compose stacks
+      community.docker.docker_compose:
+        project_src: "{{ item }}"
+        pull: yes
+        state: present
+      loop: "{{ compose_dirs }}"
