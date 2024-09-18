@@ -1,10 +1,20 @@
 ---
 - name: Pull and restart Docker Compose stacks
-  hosts: all  # Replace 'all' with your specific host group if needed
+  hosts: all
   become: yes
   collections:
     - community.docker
   tasks:
+    - name: Ensure pip is installed
+      package:
+        name: python3-pip
+        state: present
+
+    - name: Install Docker SDK for Python
+      pip:
+        name: docker
+        state: present
+
     - name: Update and restart Docker Compose stacks
       community.docker.docker_compose:
         project_src: "{{ item }}"
