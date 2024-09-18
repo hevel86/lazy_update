@@ -17,13 +17,11 @@
     - name: Pull latest images for each compose directory
       ansible.builtin.command:
         cmd: docker compose pull
-        args:
-          chdir: "{{ item }}"
+        chdir: "{{ item }}"
       loop: "{{ compose_dirs }}"
 
     - name: Start containers for each compose directory
       ansible.builtin.command:
         cmd: docker compose up -d
-        args:
-          chdir: "{{ item }}"
+        chdir: "{{ item }}"
       loop: "{{ compose_dirs }}"
