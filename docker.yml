@@ -17,7 +17,7 @@
     - name: Pull latest images with Docker Compose
       ansible.builtin.command:
         cmd: docker compose pull
-        chdir: /path/to/your/docker-compose-directory  # Change to your compose directory
+        chdir: /home/michael/docker/traefik2  # Change to your compose directory
 
     - name: Start containers with Docker Compose
       ansible.builtin.command:
