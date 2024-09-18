@@ -1,7 +1,13 @@
 ---
-- name: Run Docker Compose Pull and Up
+- name: Run Docker Compose Pull and Up for Multiple Directories
   hosts: "{{ target_hosts }}"  # Specify your inventory group or host here
   become: true
+
+#  vars:
+#    docker_compose_dirs:
+#      - /path/to/first/docker-compose-directory
+#      - /path/to/second/docker-compose-directory
+#      - /path/to/third/docker-compose-directory  # Add as many directories as needed
 
   tasks:
     - name: Ensure Docker is installed
@@ -14,12 +20,13 @@
         name: docker-compose
         state: present
 
-    - name: Pull latest images with Docker Compose
+    - name: Pull latest images and start containers for each directory
       ansible.builtin.command:
-        cmd: docker compose pull
-        chdir: /home/michael/docker/traefik2  # Change to your compose directory
-
-    - name: Start containers with Docker Compose
-      ansible.builtin.command:
-        cmd: docker compose up -d
-        chdir: /home/michael/docker/traefik2  # Change to your compose directory
+        cmd: "{{ item }}"
+      loop:
+        - "docker compose pull"
+        - "docker compose up -d"
+      loop_control:
+        loop_var: cmd
+      with_items: "{{ docker_compose_dirs }}"
+      chdir: "{{ item }}"
