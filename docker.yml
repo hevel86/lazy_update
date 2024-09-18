@@ -1,6 +1,6 @@
 ---
 - name: Run Docker Compose Pull and Up
-  hosts: {{ target_hosts }}  # Specify your inventory group or host here
+  hosts: "{{ target_hosts }}"  # Specify your inventory group or host here
   become: true
 
   tasks:
