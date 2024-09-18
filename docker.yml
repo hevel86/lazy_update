@@ -1,6 +1,6 @@
 ---
 - name: Pull and restart Docker Compose stacks
-  hosts: {{ target_hosts }}  # Replace 'all' with your specific host group if needed
+  hosts: all  # Replace 'all' with your specific host group if needed
   become: yes
   collections:
     - community.docker
