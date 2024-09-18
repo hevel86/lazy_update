@@ -3,7 +3,6 @@
   become: true
   tasks:
     - name: Pull and restart Docker Compose stacks
-      hosts: all
       collections:
         - community.docker
       tasks:
