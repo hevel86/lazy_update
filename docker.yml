@@ -2,7 +2,7 @@
 - name: Pull and restart Docker Compose stacks
   hosts: all
   become: yes
-  collections:
+  collection:
     - community.docker
   tasks:
     - name: Update and restart Docker Compose stacks
