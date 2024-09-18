@@ -3,11 +3,11 @@
   hosts: "{{ target_hosts }}"  # Specify your inventory group or host here
   become: true
 
-#  vars:
-#    docker_compose_dirs:
-#      - /path/to/first/docker-compose-directory
-#      - /path/to/second/docker-compose-directory
-#      - /path/to/third/docker-compose-directory  # Add as many directories as needed
+  # vars:
+  #   docker_compose_dirs:
+  #     - /path/to/first/docker-compose-directory
+  #     - /path/to/second/docker-compose-directory
+  #     - /path/to/third/docker-compose-directory  # Add as many directories as needed
 
   tasks:
     - name: Ensure Docker is installed
@@ -20,13 +20,16 @@
         name: docker-compose
         state: present
 
-    - name: Pull latest images and start containers for each directory
+    - name: Pull latest images for each directory
       ansible.builtin.command:
-        cmd: "{{ item }}"
-      loop:
-        - "docker compose pull"
-        - "docker compose up -d"
-      loop_control:
-        loop_var: cmd
-      with_items: "{{ docker_compose_dirs }}"
-      chdir: "{{ item }}"
+        cmd: docker compose pull
+        args:
+          chdir: "{{ item }}"
+      loop: "{{ docker_compose_dirs }}"
+
+    - name: Start containers for each directory
+      ansible.builtin.command:
+        cmd: docker compose up -d
+        args:
+          chdir: "{{ item }}"
+      loop: "{{ docker_compose_dirs }}"
