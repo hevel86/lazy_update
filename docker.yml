@@ -10,10 +10,15 @@
         state: present
       ignore_errors: yes
 
-    - name: Check if Docker is installed
+    - name: Alternaitve Check if Docker is installed
       ansible.builtin.command:
         cmd: docker --version
       register: docker_version
+      ignore_errors: yes
+
+    - name: Show Docker version
+      debug:
+        var: docker_version.stdout
       ignore_errors: yes
 
     - name: Ensure Docker Compose is installed
