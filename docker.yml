@@ -8,11 +8,13 @@
       ansible.builtin.package:
         name: docker
         state: present
+      ignore_errors: yes
 
     - name: Ensure Docker Compose is installed
       ansible.builtin.package:
         name: docker-compose
         state: present
+      ignore_errors: yes
 
     - name: Pull latest images for each compose directory
       ansible.builtin.command:
