@@ -4,3 +4,6 @@
   tasks:
     - name: Update Pi-hole
       command:  pihole -up
+    - name: Execute Gravity Sync
+      command: gravity-sync
+      ignore_errors: yes
