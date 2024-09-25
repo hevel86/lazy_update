@@ -9,7 +9,7 @@
         update_cache: yes
 
     - name: Get the currently installed Nvidia driver version
-      shell: dpkg -l | grep -oP 'nvidia-driver-\d+(-server)?'
+      shell: dpkg -l | grep -oP 'nvidia-driver-\d+(-server)?' | head -1
       register: current_driver_version
       changed_when: false
 
@@ -18,18 +18,26 @@
       register: latest_driver_version
       changed_when: false
 
+    - name: Extract current driver version number
+      set_fact:
+        current_version_number: "{{ current_driver_version.stdout | regex_search('nvidia-driver-(\\d+)', '\\1') | int }}"
+
+    - name: Extract latest driver version number
+      set_fact:
+        latest_version_number: "{{ latest_driver_version.stdout | regex_search('nvidia-driver-(\\d+)', '\\1') | int }}"
+
     - name: Debug the current Nvidia driver version
       debug:
-        msg: "Current Nvidia driver version: {{ current_driver_version.stdout }}"
+        msg: "Current Nvidia driver version: {{ current_driver_version.stdout }} (version: {{ current_version_number }})"
 
     - name: Debug the latest Nvidia server driver version
       debug:
-        msg: "Latest Nvidia server driver version: {{ latest_driver_version.stdout }}"
+        msg: "Latest Nvidia server driver version: {{ latest_driver_version.stdout }} (version: {{ latest_version_number }})"
 
     - name: Compare current and latest Nvidia driver versions
       debug:
         msg: >
-          {% if current_driver_version.stdout == latest_driver_version.stdout %}
+          {% if current_version_number >= latest_version_number %}
             "The installed Nvidia driver ({{ current_driver_version.stdout }}) is up to date."
           {% else %}
             "A newer Nvidia driver version is available: {{ latest_driver_version.stdout }} (current: {{ current_driver_version.stdout }})"
