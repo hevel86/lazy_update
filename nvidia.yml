@@ -1,0 +1,17 @@
+---
+- name: Update Nvidia drivers
+  hosts: "{{ target_hosts }}"  # Dynamically populated by Semaphore UI
+  become: true
+    
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Get the recommended Nvidia driver version from the built-in Ubuntu repository
+      shell: ubuntu-drivers devices | grep -oP '(nvidia-driver-\d+)' | tail -1
+      register: nvidia_driver_version
+
+    - name: Debug the latest Nvidia driver version
+      debug:
+        msg: "Latest Nvidia driver version: {{ nvidia_driver_version.stdout }}"
