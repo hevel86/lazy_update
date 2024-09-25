@@ -1,8 +1,9 @@
 ---
-- name: Check and compare Nvidia drivers
+- name: Check and update Nvidia drivers based on environment
   hosts: "{{ target_hosts }}"  # Dynamically populated by Semaphore UI
   become: true
-    
+
+  #var_environment populated by Semaphore UI    
   tasks:
     - name: Update apt cache
       apt:
@@ -42,3 +43,11 @@
           {% else %}
             "A newer Nvidia driver version is available: {{ latest_driver_version.stdout }} (current: {{ current_driver_version.stdout }})"
           {% endif %}
+
+    - name: Install the latest Nvidia server driver if newer and environment is production
+      apt:
+        name: "{{ latest_driver_version.stdout }}"
+        state: present
+      when:
+        - var_environment == "production"
+        - current_version_number < latest_version_number
