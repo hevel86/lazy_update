@@ -23,7 +23,7 @@
 
     - name: Ensure Docker Compose is installed
       ansible.builtin.package:
-        name: docker-compose
+        name: docker-compose-plugin
         state: present
       ignore_errors: yes
 
