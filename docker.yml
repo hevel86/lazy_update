@@ -19,13 +19,24 @@
     - name: Show Docker version
       debug:
         var: docker_version.stdout
-      ignore_errors: yes
+      when: docker_version.stdout is defined
 
-    - name: Ensure Docker Compose is installed
+    - name: Ensure Docker Compose plugin is installed
       ansible.builtin.package:
         name: docker-compose-plugin
         state: present
       ignore_errors: yes
+
+    - name: Check Docker Compose version
+      ansible.builtin.command:
+        cmd: docker compose version
+      register: compose_version
+      ignore_errors: yes
+
+    - name: Show Docker Compose version
+      debug:
+        var: compose_version.stdout
+      when: compose_version.stdout is defined
 
     - name: Pull latest images for each compose directory
       ansible.builtin.command:
