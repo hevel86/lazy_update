@@ -8,8 +8,8 @@
       apt:
         update_cache: yes
 
-    - name: Get the recommended Nvidia driver version from the built-in Ubuntu repository
-      shell: ubuntu-drivers devices | grep -oP '(nvidia-driver-\d+)' | tail -1
+    - name: Get the recommended Nvidia server driver version
+      shell: ubuntu-drivers devices | grep -oP '(nvidia-driver-\d+-server)' | tail -1
       register: nvidia_driver_version
 
     - name: Debug the latest Nvidia driver version
