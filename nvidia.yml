@@ -1,5 +1,5 @@
 ---
-- name: Update Nvidia drivers
+- name: Check and compare Nvidia drivers
   hosts: "{{ target_hosts }}"  # Dynamically populated by Semaphore UI
   become: true
     
@@ -8,10 +8,29 @@
       apt:
         update_cache: yes
 
+    - name: Get the currently installed Nvidia driver version
+      shell: dpkg -l | grep -oP 'nvidia-driver-\d+(-server)?'
+      register: current_driver_version
+      changed_when: false
+
     - name: Get the recommended Nvidia server driver version
       shell: ubuntu-drivers devices | grep -oP '(nvidia-driver-\d+-server)' | tail -1
-      register: nvidia_driver_version
+      register: latest_driver_version
+      changed_when: false
 
-    - name: Debug the latest Nvidia driver version
+    - name: Debug the current Nvidia driver version
       debug:
-        msg: "Latest Nvidia driver version: {{ nvidia_driver_version.stdout }}"
+        msg: "Current Nvidia driver version: {{ current_driver_version.stdout }}"
+
+    - name: Debug the latest Nvidia server driver version
+      debug:
+        msg: "Latest Nvidia server driver version: {{ latest_driver_version.stdout }}"
+
+    - name: Compare current and latest Nvidia driver versions
+      debug:
+        msg: >
+          {% if current_driver_version.stdout == latest_driver_version.stdout %}
+            "The installed Nvidia driver ({{ current_driver_version.stdout }}) is up to date."
+          {% else %}
+            "A newer Nvidia driver version is available: {{ latest_driver_version.stdout }} (current: {{ current_driver_version.stdout }})"
+          {% endif %}
