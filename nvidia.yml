@@ -2,8 +2,6 @@
 - name: Check and update Nvidia drivers based on environment
   hosts: "{{ target_hosts }}"  # Dynamically populated by Semaphore UI
   become: true
-  vars:
-    var_environment: "test"  # Default environment is set to "test", can be overridden with --extra-vars
 
   tasks:
     - name: Display the current environment mode
@@ -61,3 +59,14 @@
       when:
         - var_environment == "production"
         - current_version_number < latest_version_number
+      register: driver_installed
+
+    - name: Reboot the server if a new driver was installed and var_reboot is true
+      reboot:
+        msg: "Rebooting after Nvidia driver installation"
+        connect_timeout: 5
+        reboot_timeout: 600
+      when:
+        - var_environment == "production"
+        - driver_installed.changed
+        - var_reboot | bool
