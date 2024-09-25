@@ -2,9 +2,19 @@
 - name: Check and update Nvidia drivers based on environment
   hosts: "{{ target_hosts }}"  # Dynamically populated by Semaphore UI
   become: true
+  vars:
+    var_environment: "test"  # Default environment is set to "test", can be overridden with --extra-vars
 
-  #var_environment populated by Semaphore UI    
   tasks:
+    - name: Display the current environment mode
+      debug:
+        msg: >
+          {% if var_environment == "production" %}
+            "Running in PRODUCTION mode: Will install the driver if newer."
+          {% else %}
+            "Running in TEST mode: Will only print driver versions."
+          {% endif %}
+    
     - name: Update apt cache
       apt:
         update_cache: yes
