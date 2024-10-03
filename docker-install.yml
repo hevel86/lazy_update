@@ -20,17 +20,16 @@
         update_cache: yes
         cache_valid_time: 3600
 
-    - name: Install required packages
+    - name: Install required packages for apt over HTTPS
       ansible.builtin.apt:
         name:
-          - apt-transport-https
           - ca-certificates
           - curl
           - gnupg
           - lsb-release
         state: present
 
-    - name: Add Docker GPG key
+    - name: Add Docker’s official GPG key
       ansible.builtin.command:
         cmd: curl -fsSL https://download.docker.com/linux/{{ ansible_distribution | lower }}/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
       args:
@@ -44,40 +43,25 @@
         msg: "Failed to add Docker GPG key"
       when: add_gpg_result is failed
 
-    - name: Add Docker repository for Debian 12
+    - name: Set up the Docker repository for Debian
       ansible.builtin.apt_repository:
-        repo: "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian bookworm stable"
+        repo: "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian {{ ansible_distribution_release | lower }} stable"
         state: present
         filename: docker
-      when: ansible_distribution == "Debian" and ansible_distribution_release == "bookworm"
-      register: add_repo_result_debian
+      when: ansible_distribution == "Debian"
 
-    - name: Add Docker repository for Ubuntu
+    - name: Set up the Docker repository for Ubuntu
       ansible.builtin.apt_repository:
-        repo: "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        repo: "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release | lower }} stable"
         state: present
         filename: docker
       when: ansible_distribution == "Ubuntu"
-      register: add_repo_result_ubuntu
-
-    - name: Debug repository addition results
-      debug:
-        msg:
-          - "Debian repository result: {{ add_repo_result_debian }}"
-          - "Ubuntu repository result: {{ add_repo_result_ubuntu }}"
-
-    - name: Fail if repository could not be added
-      ansible.builtin.fail:
-        msg: "Failed to add Docker repository"
-      when: 
-        - ansible_distribution == "Debian" and add_repo_result_debian is failed
-        - ansible_distribution == "Ubuntu" and add_repo_result_ubuntu is failed
 
     - name: Update apt cache after adding Docker repo
       ansible.builtin.apt:
         update_cache: yes
 
-    - name: Install Docker
+    - name: Install Docker Engine, CLI, and Containerd for Debian/Ubuntu
       ansible.builtin.apt:
         name:
           - docker-ce
