@@ -60,6 +60,12 @@
       when: ansible_distribution == "Ubuntu"
       register: add_repo_result_ubuntu
 
+    - name: Debug repository addition results
+      debug:
+        msg:
+          - "Debian repository result: {{ add_repo_result_debian }}"
+          - "Ubuntu repository result: {{ add_repo_result_ubuntu }}"
+
     - name: Fail if repository could not be added
       ansible.builtin.fail:
         msg: "Failed to add Docker repository"
