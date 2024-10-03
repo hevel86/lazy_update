@@ -26,34 +26,29 @@
         name:
           - ca-certificates
           - curl
-          - gnupg
-          - lsb-release
         state: present
 
-    - name: Add Docker’s official GPG key
-      ansible.builtin.command:
-        cmd: curl -fsSL https://download.docker.com/linux/{{ ansible_distribution | lower }}/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-      args:
-        creates: /usr/share/keyrings/docker-archive-keyring.gpg
-      register: add_gpg_result
-      failed_when: add_gpg_result.rc != 0
-      ignore_errors: yes
+    - name: Create the directory for apt keyrings
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
 
-    - name: Fail if GPG key could not be added
-      ansible.builtin.fail:
-        msg: "Failed to add Docker GPG key"
-      when: add_gpg_result is failed
-
-    - name: Set up the Docker repository for Debian
-      ansible.builtin.apt_repository:
-        repo: "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian {{ ansible_distribution_release | lower }} stable"
-        state: present
-        filename: docker
+    - name: Download and install Docker's GPG key for Debian
+      ansible.builtin.get_url:
+        url: https://download.docker.com/linux/debian/gpg
+        dest: /etc/apt/keyrings/docker.asc
+        mode: '0644'
       when: ansible_distribution == "Debian"
 
-    - name: Set up the Docker repository for Ubuntu
+    - name: Add Docker repository for Debian
+      ansible.builtin.shell: |
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian $(. /etc/os-release && echo \"$VERSION_CODENAME\") stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+      when: ansible_distribution == "Debian"
+
+    - name: Set up Docker repository for Ubuntu
       ansible.builtin.apt_repository:
-        repo: "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release | lower }} stable"
+        repo: "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
         state: present
         filename: docker
       when: ansible_distribution == "Ubuntu"
