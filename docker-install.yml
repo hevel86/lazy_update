@@ -14,9 +14,6 @@
         msg:
           - "Distribution: {{ ansible_distribution }}"
           - "Release: {{ ansible_distribution_release }}"
-          - "Docker GPG Key added: {{ add_gpg_result }}"
-          - "Debian Repo: {{ add_repo_result_debian }}"
-          - "Ubuntu Repo: {{ add_repo_result_ubuntu }}"
 
     - name: Update apt cache
       ansible.builtin.apt:
