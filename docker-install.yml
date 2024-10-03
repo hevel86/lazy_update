@@ -66,6 +66,15 @@
       debug:
         var: arch_release_check
 
+    - name: Ensure GPG key is accessible
+      ansible.builtin.command: ls -l /etc/apt/keyrings/docker.asc
+      register: gpg_key_check
+      ignore_errors: yes
+
+    - name: Show GPG key check
+      debug:
+        var: gpg_key_check
+
     - name: Update apt cache after adding Docker repo
       ansible.builtin.apt:
         update_cache: yes
