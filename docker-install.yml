@@ -1,113 +1,30 @@
 ---
-- name: Install Docker and Docker Compose
+- name: Install Docker and Docker Compose using official Docker script
   hosts: "{{ target_hosts }}"  # Dynamically populated by Semaphore UI
   become: true
 
   tasks:
-    - name: Gather OS distribution facts
-      ansible.builtin.setup:
-        gather_subset:
-          - "min"
-
-    - name: Debug distribution information
-      debug:
-        msg:
-          - "Distribution: {{ ansible_distribution }}"
-          - "Release: {{ ansible_distribution_release }}"
-          - "Architecture: {{ ansible_architecture }}"
-
-    - name: Update apt cache
-      ansible.builtin.apt:
-        update_cache: yes
-        cache_valid_time: 3600
-
-    - name: Install required packages for apt over HTTPS
+    - name: Install required packages for HTTPS
       ansible.builtin.apt:
         name:
           - ca-certificates
           - curl
         state: present
 
-    - name: Create the directory for apt keyrings
-      ansible.builtin.file:
-        path: /etc/apt/keyrings
-        state: directory
+    - name: Download Docker's official install script
+      ansible.builtin.get_url:
+        url: https://get.docker.com/
+        dest: /tmp/get-docker.sh
         mode: '0755'
 
-    - name: Download and install Docker's GPG key for Debian
-      ansible.builtin.get_url:
-        url: https://download.docker.com/linux/debian/gpg
-        dest: /etc/apt/keyrings/docker.asc
-        mode: '0644'
-      when: ansible_distribution == "Debian"
-
-    - name: Add Docker repository for Debian
-      ansible.builtin.shell: |
-        echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian $(. /etc/os-release && echo \"$VERSION_CODENAME\") stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
-      when: ansible_distribution == "Debian"
-
-    - name: Debug repository list to check if Docker repo is added
-      ansible.builtin.command: cat /etc/apt/sources.list.d/docker.list
-      register: repo_check
+    - name: Run Docker's official install script
+      ansible.builtin.command: /tmp/get-docker.sh
+      register: install_docker_script
       ignore_errors: yes
 
-    - name: Show repository list debug output
+    - name: Show script install output
       debug:
-        var: repo_check
-
-    - name: Check if architecture and release codename are correct
-      ansible.builtin.shell: |
-        echo "Architecture: $(dpkg --print-architecture)"
-        echo "Release Codename: $(. /etc/os-release && echo $VERSION_CODENAME)"
-      register: arch_release_check
-      ignore_errors: yes
-
-    - name: Show architecture and release codename check
-      debug:
-        var: arch_release_check
-
-    - name: Ensure GPG key is accessible
-      ansible.builtin.command: ls -l /etc/apt/keyrings/docker.asc
-      register: gpg_key_check
-      ignore_errors: yes
-
-    - name: Show GPG key check
-      debug:
-        var: gpg_key_check
-
-    - name: Update apt cache after adding Docker repo
-      ansible.builtin.apt:
-        update_cache: yes
-
-    - name: Check if Docker package is available in the repository
-      ansible.builtin.command: apt-cache policy docker-ce
-      register: docker_package_check
-      ignore_errors: yes
-
-    - name: Show Docker package check results
-      debug:
-        var: docker_package_check
-
-    - name: Fail if Docker package is not available
-      ansible.builtin.fail:
-        msg: "Docker package not available in the repository. Please check the repository configuration."
-      when: docker_package_check.stdout == ""
-
-    - name: Install Docker Engine, CLI, and Containerd for Debian/Ubuntu
-      ansible.builtin.apt:
-        name:
-          - docker-ce
-          - docker-ce-cli
-          - containerd.io
-        state: present
-      register: docker_install_result
-      failed_when: docker_install_result.rc != 0
-      ignore_errors: yes
-
-    - name: Fail if Docker installation fails
-      ansible.builtin.fail:
-        msg: "Docker installation failed"
-      when: docker_install_result is failed
+        var: install_docker_script
 
     - name: Ensure Docker service is started and enabled
       ansible.builtin.systemd:
@@ -125,5 +42,4 @@
         name: "{{ ansible_user }}"
         groups: docker
         append: yes
-        state: present
       become: yes
