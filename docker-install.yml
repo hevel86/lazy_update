@@ -75,6 +75,11 @@
       debug:
         var: docker_package_check
 
+    - name: Fail if Docker package is not available
+      ansible.builtin.fail:
+        msg: "Docker package not available in the repository. Please check the repository configuration."
+      when: docker_package_check.stdout == ""
+
     - name: Install Docker Engine, CLI, and Containerd for Debian/Ubuntu
       ansible.builtin.apt:
         name:
