@@ -12,7 +12,7 @@
           {% else %}
             "Running in TEST mode: Will only print driver versions."
           {% endif %}
-    
+
     - name: Update apt cache
       apt:
         update_cache: yes
@@ -22,18 +22,26 @@
       register: current_driver_version
       changed_when: false
 
+    - name: Debug output of dpkg for Nvidia drivers
+      debug:
+        msg: "Raw output from dpkg command: {{ current_driver_version.stdout }}"
+
     - name: Get the recommended Nvidia server driver version
       shell: ubuntu-drivers devices | grep -oP '(nvidia-driver-\d+-server)' | tail -1
       register: latest_driver_version
       changed_when: false
 
+    - name: Debug output of ubuntu-drivers for Nvidia server drivers
+      debug:
+        msg: "Raw output from ubuntu-drivers command: {{ latest_driver_version.stdout }}"
+
     - name: Extract current driver version number
       set_fact:
-        current_version_number: "{{ current_driver_version.stdout | regex_search('nvidia-driver-(\\d+)', '\\1') | int }}"
+        current_version_number: "{{ current_driver_version.stdout | regex_search('nvidia-driver-(\\d+)', '\\1') | int | default(0) }}"
 
     - name: Extract latest driver version number
       set_fact:
-        latest_version_number: "{{ latest_driver_version.stdout | regex_search('nvidia-driver-(\\d+)', '\\1') | int }}"
+        latest_version_number: "{{ latest_driver_version.stdout | regex_search('nvidia-driver-(\\d+)', '\\1') | int | default(0) }}"
 
     - name: Debug the current Nvidia driver version
       debug:
