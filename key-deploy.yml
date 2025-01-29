@@ -11,7 +11,7 @@
         mode: '0700'
 
     - name: Add public key to authorized_keys
-        authorized_key:
-          user: "{{ ansible_user }}"
-          state: present
-          key: "{{ ssh_key }}"
+      authorized_key:
+        user: "{{ ansible_user }}"
+        state: present
+        key: "{{ ssh_key }}"
