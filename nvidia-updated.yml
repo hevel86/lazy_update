@@ -1,17 +1,4 @@
-- name: Set recommended driver version if found
-      set_fact:
-        nvidia_driver_package: "{{ recommended_driver.stdout }}"
-      when: recommended_driver.stdout != ""
-        
-    # If no recommended driver found, set specific server driver
-    - name: Set server driver fallback
-      set_fact:
-        nvidia_driver_package: "nvidia-driver-{{ nvidia_driver_version }}-server"
-      when: recommended_driver.stdout == ""
-      
-    - name: Display driver to be installed
-      debug:
-        msg: "Driver package to install: {{ nvidia_driver_package }}"---
+---
 # Simple NVIDIA Driver Installation Playbook for Ubuntu/Debian
 # Optimized for headless compute servers (Tdarr, Plex, Frigate)
 
@@ -25,7 +12,7 @@
     nvidia_driver_version: latest  # Can be set to specific version like "525"
     restart_after_install: "{{ var_reboot | default('false') }}"  # Get reboot preference from Semaphore
     var_environment: "{{ var_environment | default('test') }}"    # Get environment from Semaphore
-    
+  
   tasks:
     - name: Check if NVIDIA GPU is present
       shell: lspci | grep -i nvidia
@@ -77,10 +64,39 @@
         msg: "NVIDIA driver {{ current_driver_version.stdout | default('not installed') }}"
       when: driver_installed
         
+    - name: Find available NVIDIA drivers
+      shell: ubuntu-drivers devices | grep -i nvidia
+      register: nvidia_drivers_output
+      changed_when: false
+      failed_when: false
+      
+    - name: Display all available NVIDIA drivers
+      debug:
+        var: nvidia_drivers_output.stdout_lines
+      
+    - name: Extract recommended NVIDIA driver
+      shell: ubuntu-drivers devices | grep "recommended" | awk '{print $3}'
+      register: recommended_driver
+      changed_when: false
+      failed_when: false
+      
     - name: Display recommended driver information
       debug:
-        msg: "Recommended NVIDIA driver: {{ recommended_driver.stdout | default('not found') }}"
-      when: nvidia_driver_version == "latest" and recommended_driver.stdout is defined
+        msg: "Recommended NVIDIA driver: {{ recommended_driver.stdout | default('No recommended driver found') }}"
+      
+    - name: Set driver package - use recommended if found
+      set_fact:
+        nvidia_driver_package: "{{ recommended_driver.stdout }}"
+      when: recommended_driver.stdout != ""
+      
+    - name: Set driver package - use server driver if no recommendation
+      set_fact:
+        nvidia_driver_package: "nvidia-driver-{{ nvidia_driver_version }}-server"
+      when: recommended_driver.stdout == ""
+      
+    - name: Display driver to be installed
+      debug:
+        msg: "Driver package to install: {{ nvidia_driver_package }}"
       
     # Ubuntu/Debian driver installation
     - name: Install required dependencies
@@ -100,26 +116,6 @@
     - name: Update apt cache
       apt:
         update_cache: yes
-        
-    - name: Find recommended NVIDIA driver
-      shell: ubuntu-drivers devices | grep -i nvidia
-      register: nvidia_drivers_output
-      changed_when: false
-      failed_when: false
-      
-    - name: Display all available NVIDIA drivers
-      debug:
-        var: nvidia_drivers_output.stdout_lines
-      
-    - name: Find recommended NVIDIA driver specifically
-      shell: ubuntu-drivers devices | grep "recommended" | awk '{print $3}'
-      register: recommended_driver
-      changed_when: false
-      failed_when: false
-      
-    - name: Display recommended driver information (if any)
-      debug:
-        msg: "Recommended NVIDIA driver: {{ recommended_driver.stdout | default('No recommended driver found') }}"
         
     # Install NVIDIA driver
     - name: Install NVIDIA driver
