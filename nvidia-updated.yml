@@ -1,4 +1,17 @@
----
+- name: Set recommended driver version if found
+      set_fact:
+        nvidia_driver_package: "{{ recommended_driver.stdout }}"
+      when: recommended_driver.stdout != ""
+        
+    # If no recommended driver found, set specific server driver
+    - name: Set server driver fallback
+      set_fact:
+        nvidia_driver_package: "nvidia-driver-{{ nvidia_driver_version }}-server"
+      when: recommended_driver.stdout == ""
+      
+    - name: Display driver to be installed
+      debug:
+        msg: "Driver package to install: {{ nvidia_driver_package }}"---
 # Simple NVIDIA Driver Installation Playbook for Ubuntu/Debian
 # Optimized for headless compute servers (Tdarr, Plex, Frigate)
 
@@ -10,8 +23,6 @@
   vars:
     # Configuration variables
     nvidia_driver_version: latest  # Can be set to specific version like "525"
-    install_cuda: true             # Set to true to install CUDA toolkit
-    cuda_version: "11.8"           # CUDA version to install
     restart_after_install: "{{ var_reboot | default('false') }}"  # Get reboot preference from Semaphore
     var_environment: "{{ var_environment | default('test') }}"    # Get environment from Semaphore
     
@@ -91,16 +102,24 @@
         update_cache: yes
         
     - name: Find recommended NVIDIA driver
+      shell: ubuntu-drivers devices | grep -i nvidia
+      register: nvidia_drivers_output
+      changed_when: false
+      failed_when: false
+      
+    - name: Display all available NVIDIA drivers
+      debug:
+        var: nvidia_drivers_output.stdout_lines
+      
+    - name: Find recommended NVIDIA driver specifically
       shell: ubuntu-drivers devices | grep "recommended" | awk '{print $3}'
       register: recommended_driver
       changed_when: false
       failed_when: false
-      when: nvidia_driver_version == "latest"
       
-    - name: Set recommended driver version
-      set_fact:
-        nvidia_driver_package: "{{ recommended_driver.stdout if nvidia_driver_version == 'latest' and recommended_driver.stdout != '' else 'nvidia-driver-' + nvidia_driver_version }}"
-      when: nvidia_driver_version == "latest" and recommended_driver.stdout != ""
+    - name: Display recommended driver information (if any)
+      debug:
+        msg: "Recommended NVIDIA driver: {{ recommended_driver.stdout | default('No recommended driver found') }}"
         
     # Install NVIDIA driver
     - name: Install NVIDIA driver
@@ -113,15 +132,18 @@
         - not driver_installed or (driver_installed and recommended_driver.stdout != current_driver_version.stdout)
         - var_environment == "production"
       
-    # Install CUDA if requested
-    - name: Install CUDA toolkit
-      apt:
-        name: "cuda-toolkit-{{ cuda_version | regex_replace('\\.','-') }}"
-        state: present
-      when: 
-        - install_cuda
-        - (driver_install.changed or driver_installed)
-        - var_environment == "production"
+    # Display CUDA information if driver is installed
+    - name: Check CUDA version if NVIDIA driver is installed
+      shell: "nvidia-smi --query-gpu=driver_version,cuda_version --format=csv,noheader"
+      register: cuda_version_info
+      changed_when: false
+      failed_when: false
+      when: driver_installed
+      
+    - name: Display CUDA version information
+      debug:
+        msg: "CUDA version information: {{ cuda_version_info.stdout | default('Not available') }}"
+      when: driver_installed and cuda_version_info.stdout is defined
       
     # Configure for compute optimization with display
     - name: Create X11 configuration directory
