@@ -1,0 +1,243 @@
+---
+# Simple NVIDIA Driver Installation Playbook for Ubuntu/Debian
+# Optimized for headless compute servers (Tdarr, Plex, Frigate)
+
+- name: NVIDIA Driver Installation
+  hosts: "{{ target_hosts | default('all') }}"
+  become: true
+  gather_facts: true
+  
+  vars:
+    # Configuration variables
+    nvidia_driver_version: latest  # Can be set to specific version like "525"
+    install_cuda: true             # Set to true to install CUDA toolkit
+    cuda_version: "11.8"           # CUDA version to install
+    restart_after_install: "{{ var_reboot | default('false') }}"  # Get reboot preference from Semaphore
+    var_environment: "{{ var_environment | default('test') }}"    # Get environment from Semaphore
+    
+  tasks:
+    - name: Check if NVIDIA GPU is present
+      shell: lspci | grep -i nvidia
+      register: nvidia_check
+      changed_when: false
+      failed_when: false
+      
+    - name: Set NVIDIA present fact
+      set_fact:
+        nvidia_present: "{{ nvidia_check.rc == 0 }}"
+      
+    - name: Display NVIDIA GPU detection result
+      debug:
+        msg: "NVIDIA GPU {{ 'detected' if nvidia_present else 'not detected' }}"
+        
+    - name: Display the current environment mode
+      debug:
+        msg: >
+          {% if var_environment == "production" %}
+            "Running in PRODUCTION mode: Will install the driver if newer."
+          {% else %}
+            "Running in TEST mode: Will only print driver versions."
+          {% endif %}
+        
+    - name: Exit playbook if no NVIDIA GPU detected
+      meta: end_play
+      when: not nvidia_present
+      
+    # Check current driver status
+    - name: Check if NVIDIA driver is already installed
+      shell: "command -v nvidia-smi && nvidia-smi"
+      register: nvidia_smi_result
+      changed_when: false
+      failed_when: false
+      
+    - name: Set driver installed fact
+      set_fact:
+        driver_installed: "{{ nvidia_smi_result.rc == 0 }}"
+        
+    - name: Get current driver version if installed
+      shell: "nvidia-smi --query-gpu=driver_version --format=csv,noheader | head -n 1"
+      register: current_driver_version
+      when: driver_installed
+      changed_when: false
+      failed_when: false
+      
+    - name: Display current driver information
+      debug:
+        msg: "NVIDIA driver {{ current_driver_version.stdout | default('not installed') }}"
+      when: driver_installed
+        
+    - name: Display recommended driver information
+      debug:
+        msg: "Recommended NVIDIA driver: {{ recommended_driver.stdout | default('not found') }}"
+      when: nvidia_driver_version == "latest" and recommended_driver.stdout is defined
+      
+    # Ubuntu/Debian driver installation
+    - name: Install required dependencies
+      apt:
+        name:
+          - software-properties-common
+          - ubuntu-drivers-common
+          - build-essential
+          - dkms
+        state: present
+        
+    - name: Add NVIDIA PPA repository
+      apt_repository:
+        repo: ppa:graphics-drivers/ppa
+        state: present
+        
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        
+    - name: Find recommended NVIDIA driver
+      shell: ubuntu-drivers devices | grep "recommended" | awk '{print $3}'
+      register: recommended_driver
+      changed_when: false
+      failed_when: false
+      when: nvidia_driver_version == "latest"
+      
+    - name: Set recommended driver version
+      set_fact:
+        nvidia_driver_package: "{{ recommended_driver.stdout if nvidia_driver_version == 'latest' and recommended_driver.stdout != '' else 'nvidia-driver-' + nvidia_driver_version }}"
+      when: nvidia_driver_version == "latest" and recommended_driver.stdout != ""
+        
+    # Install NVIDIA driver
+    - name: Install NVIDIA driver
+      apt:
+        name: "{{ nvidia_driver_package }}"
+        state: present
+        update_cache: yes
+      register: driver_install
+      when: 
+        - not driver_installed or (driver_installed and recommended_driver.stdout != current_driver_version.stdout)
+        - var_environment == "production"
+      
+    # Install CUDA if requested
+    - name: Install CUDA toolkit
+      apt:
+        name: "cuda-toolkit-{{ cuda_version | regex_replace('\\.','-') }}"
+        state: present
+      when: 
+        - install_cuda
+        - (driver_install.changed or driver_installed)
+        - var_environment == "production"
+      
+    # Configure for compute optimization with display
+    - name: Create X11 configuration directory
+      file:
+        path: /etc/X11/xorg.conf.d
+        state: directory
+        mode: '0755'
+      when: 
+        - driver_install.changed 
+        - var_environment == "production"
+        
+    - name: Create GPU optimization configuration
+      copy:
+        content: |
+          Section "Device"
+              Identifier "NVIDIA"
+              Driver "nvidia"
+              Option "NoLogo" "true"
+              # Not using UseDisplayDevice "None" since PiKVM is connected
+              Option "RegistryDwords" "PerfLevelSrc=0x2222"
+              Option "TripleBuffer" "True"
+          EndSection
+        dest: /etc/X11/xorg.conf.d/10-nvidia-compute.conf
+        mode: '0644'
+      when: 
+        - driver_install.changed
+        - var_environment == "production"
+      
+    # NVENC configuration for transcoding
+    - name: Ensure NVENC is enabled for transcoding
+      lineinfile:
+        path: /etc/modprobe.d/nvidia.conf
+        line: "options nvidia NVreg_RestrictProfilingToAdminUsers=0"
+        create: yes
+        mode: '0644'
+      when: 
+        - driver_install.changed
+        - var_environment == "production"
+      
+    # Docker GPU passthrough setup
+    - name: Install NVIDIA Container Toolkit
+      block:
+        - name: Add NVIDIA Container Toolkit repository
+          apt_repository:
+            repo: "deb https://nvidia.github.io/libnvidia-container/stable/ubuntu/{{ ansible_distribution_version }}/amd64 /"
+            state: present
+            filename: nvidia-container-toolkit
+            
+        - name: Install NVIDIA Container Toolkit packages
+          apt:
+            name:
+              - nvidia-container-toolkit
+              - nvidia-container-runtime
+            state: present
+            
+        - name: Configure Docker for NVIDIA GPU (if Docker exists)
+          copy:
+            content: |
+              {
+                "default-runtime": "nvidia",
+                "runtimes": {
+                  "nvidia": {
+                    "path": "/usr/bin/nvidia-container-runtime",
+                    "runtimeArgs": []
+                  }
+                }
+              }
+            dest: /etc/docker/daemon.json
+            mode: '0644'
+          register: docker_config
+          failed_when: false
+            
+        - name: Restart Docker service if it exists
+          systemd:
+            name: docker
+            state: restarted
+          failed_when: false
+          when: docker_config.changed
+      when: 
+        - driver_install.changed
+        - var_environment == "production"
+            
+    # Persistence mode for faster GPU response
+    - name: Create nvidia-persistenced configuration directory
+      file:
+        path: /etc/nvidia-persistenced
+        state: directory
+        mode: '0755'
+      when: 
+        - driver_install.changed
+        - var_environment == "production"
+        
+    - name: Configure persistence mode settings
+      copy:
+        content: "persistence-mode=1"
+        dest: /etc/nvidia-persistenced/configuration
+        mode: '0644'
+      when: 
+        - driver_install.changed
+        - var_environment == "production"
+        
+    - name: Enable Nvidia Persistence Daemon
+      systemd:
+        name: nvidia-persistenced
+        enabled: yes
+        state: started
+      failed_when: false
+      when: 
+        - driver_install.changed
+        - var_environment == "production"
+      
+    # Final restart if needed
+    - name: Restart system if required
+      reboot:
+        reboot_timeout: 600
+      when: 
+        - restart_after_install == "true"
+        - driver_install.changed
+        - var_environment == "production"
