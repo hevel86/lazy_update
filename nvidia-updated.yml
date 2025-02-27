@@ -129,17 +129,17 @@
         - var_environment == "production"
       
     # Display CUDA information if driver is installed
-    - name: Check CUDA version if NVIDIA driver is installed
-      shell: "nvidia-smi --query-gpu=driver_version,cuda_version --format=csv,noheader"
-      register: cuda_version_info
+    - name: Check NVIDIA driver and CUDA version
+      shell: "nvidia-smi"
+      register: nvidia_smi_output
       changed_when: false
       failed_when: false
       when: driver_installed
       
-    - name: Display CUDA version information
+    - name: Display NVIDIA driver and CUDA information
       debug:
-        msg: "CUDA version information: {{ cuda_version_info.stdout | default('Not available') }}"
-      when: driver_installed and cuda_version_info.stdout is defined
+        msg: "{{ nvidia_smi_output.stdout_lines | default(['NVIDIA information not available']) }}"
+      when: driver_installed and nvidia_smi_output.stdout is defined
       
     # Configure for compute optimization with display
     - name: Create X11 configuration directory
