@@ -212,59 +212,51 @@
       set_fact:
         docker_installed: "{{ docker_check.rc == 0 }}"
 
-    # Docker GPU passthrough setup - Updated section
+    # Docker GPU passthrough setup - Updated section based on Server World guide
     - name: Install NVIDIA Container Toolkit
       block:
-        - name: Add NVIDIA Container Toolkit repository key
-          apt_key:
-            url: https://nvidia.github.io/nvidia-container-runtime/gpgkey
-            state: present
-          failed_when: false
-
-        - name: Add NVIDIA Container Toolkit repository
-          apt_repository:
-            repo: "deb https://nvidia.github.io/libnvidia-container/stable/ubuntu/{{ ansible_distribution_version }}/amd64 /"
-            state: present
-            filename: nvidia-container-toolkit
-            
-        - name: Install NVIDIA Container Toolkit packages
+        # Step 1: Install curl to download the repository
+        - name: Ensure curl is installed
           apt:
-            name:
-              - nvidia-container-toolkit
-              - nvidia-container-runtime
+            name: curl
             state: present
+            
+        # Step 2: Add NVIDIA Container Toolkit repository
+        - name: Add NVIDIA Container Toolkit repository
+          shell: |
+            curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+            curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
+              sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
+              sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+          args:
+            creates: /etc/apt/sources.list.d/nvidia-container-toolkit.list
+            
+        # Step 3: Update package lists
+        - name: Update apt cache after adding NVIDIA repository
+          apt:
             update_cache: yes
             
-        # New step: Configure Docker to use NVIDIA runtime
-        - name: Configure NVIDIA Container Toolkit for Docker
+        # Step 4: Install NVIDIA Container Toolkit
+        - name: Install NVIDIA Container Toolkit
+          apt:
+            name: nvidia-container-toolkit
+            state: present
+            
+        # Step 5: Configure the Docker daemon
+        - name: Configure Docker for NVIDIA GPU
           shell: nvidia-ctk runtime configure --runtime=docker
           register: nvidia_ctk_config
           changed_when: nvidia_ctk_config.rc == 0
-            
-        - name: Configure Docker for NVIDIA GPU
-          copy:
-            content: |
-              {
-                "runtimes": {
-                  "nvidia": {
-                    "path": "/usr/bin/nvidia-container-runtime",
-                    "runtimeArgs": []
-                  }
-                }
-              }
-            dest: /etc/docker/daemon.json
-            mode: '0644'
-          register: docker_config
-          failed_when: false
-            
+          
+        # Step 6: Restart Docker
         - name: Restart Docker service
           systemd:
             name: docker
             state: restarted
           failed_when: false
-          when: docker_config.changed or nvidia_ctk_config.changed
+          when: nvidia_ctk_config is changed
           
-        # Verify Docker NVIDIA runtime is working
+        # Step 7: Verify the installation
         - name: Test NVIDIA runtime with Docker
           shell: docker run --rm --gpus all ubuntu nvidia-smi
           register: docker_nvidia_test
