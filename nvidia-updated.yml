@@ -150,6 +150,14 @@
       when: 
         - driver_install.changed 
         - var_environment == "production"
+      register: x11_config_dir
+      
+    - name: Explain X11 configuration skip reason
+      debug:
+        msg: "Skipping X11 configuration directory creation: {% if not driver_install.changed %}Driver not being installed or updated{% elif var_environment != 'production' %}Running in TEST mode{% else %}Unknown reason{% endif %}"
+      when: 
+        - driver_install is defined
+        - not (driver_install.changed and var_environment == "production")
         
     - name: Create GPU optimization configuration
       copy:
@@ -167,6 +175,13 @@
       when: 
         - driver_install.changed
         - var_environment == "production"
+        
+    - name: Explain GPU optimization configuration skip reason
+      debug:
+        msg: "Skipping GPU optimization configuration: {% if not driver_install.changed %}Driver not being installed or updated{% elif var_environment != 'production' %}Running in TEST mode{% else %}Unknown reason{% endif %}"
+      when: 
+        - driver_install is defined
+        - not (driver_install.changed and var_environment == "production")
       
     # NVENC configuration for transcoding
     - name: Ensure NVENC is enabled for transcoding
@@ -178,6 +193,13 @@
       when: 
         - driver_install.changed
         - var_environment == "production"
+        
+    - name: Explain NVENC configuration skip reason
+      debug:
+        msg: "Skipping NVENC configuration: {% if not driver_install.changed %}Driver not being installed or updated{% elif var_environment != 'production' %}Running in TEST mode{% else %}Unknown reason{% endif %}"
+      when: 
+        - driver_install is defined
+        - not (driver_install.changed and var_environment == "production")
       
     # Docker GPU passthrough setup
     - name: Install NVIDIA Container Toolkit
@@ -221,6 +243,13 @@
       when: 
         - driver_install.changed
         - var_environment == "production"
+        
+    - name: Explain NVIDIA Container Toolkit skip reason
+      debug:
+        msg: "Skipping NVIDIA Container Toolkit installation: {% if not driver_install.changed %}Driver not being installed or updated{% elif var_environment != 'production' %}Running in TEST mode{% else %}Unknown reason{% endif %}"
+      when: 
+        - driver_install is defined
+        - not (driver_install.changed and var_environment == "production")
             
     # Persistence mode for faster GPU response
     - name: Create nvidia-persistenced configuration directory
@@ -232,6 +261,13 @@
         - driver_install.changed
         - var_environment == "production"
         
+    - name: Explain persistence directory skip reason
+      debug:
+        msg: "Skipping nvidia-persistenced directory creation: {% if not driver_install.changed %}Driver not being installed or updated{% elif var_environment != 'production' %}Running in TEST mode{% else %}Unknown reason{% endif %}"
+      when: 
+        - driver_install is defined
+        - not (driver_install.changed and var_environment == "production")
+        
     - name: Configure persistence mode settings
       copy:
         content: "persistence-mode=1"
@@ -240,6 +276,13 @@
       when: 
         - driver_install.changed
         - var_environment == "production"
+        
+    - name: Explain persistence mode settings skip reason
+      debug:
+        msg: "Skipping persistence mode configuration: {% if not driver_install.changed %}Driver not being installed or updated{% elif var_environment != 'production' %}Running in TEST mode{% else %}Unknown reason{% endif %}"
+      when: 
+        - driver_install is defined
+        - not (driver_install.changed and var_environment == "production")
         
     - name: Enable Nvidia Persistence Daemon
       systemd:
@@ -250,6 +293,13 @@
       when: 
         - driver_install.changed
         - var_environment == "production"
+        
+    - name: Explain persistence daemon enabling skip reason
+      debug:
+        msg: "Skipping nvidia-persistenced daemon activation: {% if not driver_install.changed %}Driver not being installed or updated{% elif var_environment != 'production' %}Running in TEST mode{% else %}Unknown reason{% endif %}"
+      when: 
+        - driver_install is defined
+        - not (driver_install.changed and var_environment == "production")
       
     # Final restart if needed
     - name: Restart system if required
@@ -259,3 +309,10 @@
         - restart_after_install == "true"
         - driver_install.changed
         - var_environment == "production"
+        
+    - name: Explain system restart skip reason
+      debug:
+        msg: "Skipping system restart: {% if restart_after_install != 'true' %}Restart not enabled in configuration{% elif not driver_install.changed %}Driver not being installed or updated{% elif var_environment != 'production' %}Running in TEST mode{% else %}Unknown reason{% endif %}"
+      when: 
+        - driver_install is defined
+        - not (restart_after_install == "true" and driver_install.changed and var_environment == "production")
