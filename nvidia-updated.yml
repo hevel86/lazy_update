@@ -201,6 +201,17 @@
         - driver_install is defined
         - not (driver_install.changed and var_environment == "production")
       
+    # Check if Docker is installed
+    - name: Check if Docker is installed
+      command: which docker
+      register: docker_check
+      changed_when: false
+      failed_when: false
+
+    - name: Set Docker installed fact
+      set_fact:
+        docker_installed: "{{ docker_check.rc == 0 }}"
+
     # Docker GPU passthrough setup - Updated section
     - name: Install NVIDIA Container Toolkit
       block:
@@ -230,7 +241,7 @@
           register: nvidia_ctk_config
           changed_when: nvidia_ctk_config.rc == 0
             
-        - name: Configure Docker for NVIDIA GPU (if Docker exists)
+        - name: Configure Docker for NVIDIA GPU
           copy:
             content: |
               {
@@ -246,7 +257,7 @@
           register: docker_config
           failed_when: false
             
-        - name: Restart Docker service if it exists
+        - name: Restart Docker service
           systemd:
             name: docker
             state: restarted
@@ -270,15 +281,20 @@
             msg: "NVIDIA Docker test failed with error: {{ docker_nvidia_test.stderr | default('Unknown error') }}"
           when: docker_nvidia_test.rc != 0
       when: 
-        - driver_install.changed or not driver_installed
+        - driver_installed or driver_install.changed
+        - docker_installed
         - var_environment == "production"
         
     - name: Explain NVIDIA Container Toolkit skip reason
       debug:
-        msg: "Skipping NVIDIA Container Toolkit installation: {% if not driver_install.changed %}Driver not being installed or updated{% elif var_environment != 'production' %}Running in TEST mode{% else %}Unknown reason{% endif %}"
+        msg: >
+          Skipping NVIDIA Container Toolkit installation: 
+          {% if not driver_installed and not driver_install.changed %}No NVIDIA driver installed{% 
+          elif not docker_installed %}Docker is not installed{% 
+          elif var_environment != 'production' %}Running in TEST mode{% 
+          else %}Unknown reason{% endif %}
       when: 
-        - driver_install is defined
-        - not (driver_install.changed and var_environment == "production")
+        - not (driver_installed or driver_install.changed) or not docker_installed or var_environment != "production"
             
     # Persistence mode for faster GPU response
     - name: Create nvidia-persistenced configuration directory
