@@ -201,9 +201,15 @@
         - driver_install is defined
         - not (driver_install.changed and var_environment == "production")
       
-    # Docker GPU passthrough setup
+    # Docker GPU passthrough setup - Updated section
     - name: Install NVIDIA Container Toolkit
       block:
+        - name: Add NVIDIA Container Toolkit repository key
+          apt_key:
+            url: https://nvidia.github.io/nvidia-container-runtime/gpgkey
+            state: present
+          failed_when: false
+
         - name: Add NVIDIA Container Toolkit repository
           apt_repository:
             repo: "deb https://nvidia.github.io/libnvidia-container/stable/ubuntu/{{ ansible_distribution_version }}/amd64 /"
@@ -216,12 +222,18 @@
               - nvidia-container-toolkit
               - nvidia-container-runtime
             state: present
+            update_cache: yes
+            
+        # New step: Configure Docker to use NVIDIA runtime
+        - name: Configure NVIDIA Container Toolkit for Docker
+          shell: nvidia-ctk runtime configure --runtime=docker
+          register: nvidia_ctk_config
+          changed_when: nvidia_ctk_config.rc == 0
             
         - name: Configure Docker for NVIDIA GPU (if Docker exists)
           copy:
             content: |
               {
-                "default-runtime": "nvidia",
                 "runtimes": {
                   "nvidia": {
                     "path": "/usr/bin/nvidia-container-runtime",
@@ -239,9 +251,26 @@
             name: docker
             state: restarted
           failed_when: false
-          when: docker_config.changed
+          when: docker_config.changed or nvidia_ctk_config.changed
+          
+        # Verify Docker NVIDIA runtime is working
+        - name: Test NVIDIA runtime with Docker
+          shell: docker run --rm --gpus all ubuntu nvidia-smi
+          register: docker_nvidia_test
+          changed_when: false
+          failed_when: false
+          
+        - name: Display NVIDIA Docker test results
+          debug:
+            msg: "{{ docker_nvidia_test.stdout_lines | default(['NVIDIA Docker test failed']) }}"
+          when: docker_nvidia_test.rc == 0
+          
+        - name: Display NVIDIA Docker test error
+          debug:
+            msg: "NVIDIA Docker test failed with error: {{ docker_nvidia_test.stderr | default('Unknown error') }}"
+          when: docker_nvidia_test.rc != 0
       when: 
-        - driver_install.changed
+        - driver_install.changed or not driver_installed
         - var_environment == "production"
         
     - name: Explain NVIDIA Container Toolkit skip reason
