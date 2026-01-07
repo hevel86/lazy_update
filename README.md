@@ -20,7 +20,7 @@ This repository hosts a collection of Ansible playbooks for automating server ma
 ### **System Updates** (`site.yml`)
 [View Raw](https://raw.githubusercontent.com/hevel86/lazy_update/refs/heads/master/site.yml)
 *   **Purpose:** General server maintenance.
-*   **Actions:** Updates APT cache, performs `dist-upgrade`, cleans up unused packages, and handles required reboots.
+*   **Actions:** Updates APT cache, performs `dist-upgrade`, cleans up unused packages, and notifies if a reboot is required.
 
 ### **SSH Key Deployment** (`key-deploy.yml`)
 [View Raw](https://raw.githubusercontent.com/hevel86/lazy_update/refs/heads/master/key-deploy.yml)
