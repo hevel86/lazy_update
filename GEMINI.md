@@ -1,76 +1,63 @@
 # Gemini Context: Lazy Update Ansible Project
 
-This document provides context for the `lazy_update` project, a collection of Ansible playbooks designed for automated system maintenance, Docker container management, and specific service updates (Pi-hole, Nvidia).
+This document provides context for the `lazy_update` project, a collection of optimized Ansible playbooks for automated system maintenance, Docker container management, and GPU/Service updates.
 
 ## Project Overview
 
 *   **Type:** Infrastructure as Code (Ansible)
-*   **Purpose:** Automate routine maintenance tasks across a fleet of servers. It appears to be designed for integration with **Semaphore UI**, as indicated by comments in the playbooks (e.g., `hosts: "{{ target_hosts }}"`).
+*   **Target OS:** Debian / Ubuntu
+*   **Orchestration:** Optimized for **Semaphore UI** integration.
 *   **Key Features:**
-    *   System-wide APT updates and reboots.
-    *   Docker installation (via official script) and container lifecycle management (pull/up).
-    *   NVIDIA driver updates.
-    *   SSH key deployment.
+    *   System-wide APT maintenance with automatic cleanup and reboot notifications.
+    *   Idempotent Docker container lifecycle management via `docker_compose_v2`.
+    *   Automated NVIDIA GPU deployment including drivers, Container Toolkit, and compute optimizations.
+    *   Streamlined Pi-hole v6 updates.
+    *   Secure SSH key deployment.
 
 ## Key Files & Playbooks
 
 ### Core Playbooks
 
-*   **`site.yml`**: The main system maintenance playbook.
-    *   **Actions:** Updates apt cache, performs `dist-upgrade`, checks for `/var/run/reboot-required`, and reboots if necessary (skipping `brainiac-local`).
-    *   **Variables:** `target_hosts`
+*   **`site.yml`**: General maintenance.
+    *   **Actions:** APT update, `dist-upgrade`, `autoremove`, `autoclean`.
+    *   **Note:** Notifies if reboot is required; does not reboot automatically.
 
-*   **`docker.yml`**: Manages existing Docker Compose stacks.
-    *   **Actions:** Checks for Docker installation, pulls latest images for specified directories, and runs `docker compose up -d`.
-    *   **Variables:** `target_hosts`, `compose_dirs` (list of paths to docker-compose directories).
+*   **`docker.yml`**: Docker stack management.
+    *   **Actions:** Ensures `python3-docker` SDK is present, pulls latest images, and manages container state.
+    *   **Variables:** `target_hosts`, `compose_dirs`.
 
-*   **`docker-install.yml`**: Installs Docker from scratch.
-    *   **Actions:** Uses the official `get.docker.com` script to install Docker and adds the user to the `docker` group.
-    *   **Variables:** `target_hosts`
+*   **`docker-install.yml`**: Host bootstrapping.
+    *   **Actions:** Idempotent installation of Docker engine and necessary Python dependencies.
 
-*   **`nvidia.yml`**: manages Nvidia drivers.
-    *   **Actions:** Checks installed version vs recommended, updates drivers, and handles reboots.
-    *   **Variables:** `target_hosts`
+*   **`nvidia.yml`**: Advanced GPU management.
+    *   **Actions:** Hardware detection, driver PPA management, `nvidia-container-toolkit` setup, and Persistence Mode activation.
+    *   **Variables:** `target_hosts`, `var_environment` (production/test), `var_reboot`.
 
-*   **`key-deploy.yml`**: SSH Key Management.
-    *   **Actions:** Adds a specific public SSH key to the `authorized_keys` of the target user.
-    *   **Variables:** `target_hosts`, `ssh_key`
+*   **`pihole.yml`**: Pi-hole v6 maintenance.
+    *   **Actions:** Runs `pihole -up` with change detection logic.
+
+*   **`key-deploy.yml`**: Access management.
+    *   **Actions:** Authorized keys deployment for `{{ ansible_user }}`.
 
 ### Configuration
 
-*   **`collections/requirements.yml`**: Defines Ansible collection dependencies.
-    *   **Dependency:** `community.docker`
+*   **`collections/requirements.yml`**:
+    *   **Dependency:** `community.docker` (pinned to `>=3.4.0`).
 
 ## Building and Running
 
 ### Prerequisites
-
-1.  **Ansible:** Must be installed.
-2.  **Dependencies:** Install required collections:
-    ```bash
-    ansible-galaxy collection install -r collections/requirements.yml
-    ```
-
-### Execution
-
-These playbooks are written to be flexible with the inventory source, relying on the `target_hosts` variable.
-
-**Manual CLI Run:**
-To run manually, you must provide the inventory and the `target_hosts` variable (and others where applicable).
-
 ```bash
-# Example: Run system updates
-ansible-playbook -i inventory.ini site.yml -e "target_hosts=all"
-
-# Example: Update Docker stacks
-ansible-playbook -i inventory.ini docker.yml -e "target_hosts=docker_servers" -e '{"compose_dirs": ["/opt/stack1", "/opt/stack2"]}'
+ansible-galaxy collection install -r collections/requirements.yml
 ```
 
-**Semaphore UI:**
-When running within Semaphore, ensure the variables `target_hosts`, `compose_dirs`, and `ssh_key` are mapped correctly in the task environment or inventory variables.
+### Execution
+Designed to receive `target_hosts` and other variables via Semaphore UI. Manual execution requires passing these as extra vars:
+```bash
+ansible-playbook -i inventory.ini site.yml -e "target_hosts=all"
+```
 
 ## Development Conventions
-
-*   **Variables:** Heavy reliance on extra vars (`-e`) for dynamic targeting (`target_hosts`).
-*   **Privilege Escalation:** Most playbooks use `become: true` for root privileges.
-*   **Error Handling:** Some tasks utilize `ignore_errors: yes` (e.g., Docker installation checks) to proceed gracefully if a state is already satisfied or verified via a different method.
+*   **Idempotency:** Playbooks use modules (e.g., `docker_compose_v2`) or `changed_when` logic to ensure accurate reporting.
+*   **Safety:** Modifying tasks in critical playbooks (like NVIDIA) are often guarded by `var_environment == "production"`.
+*   **Privilege:** All playbooks assume `become: true`.
