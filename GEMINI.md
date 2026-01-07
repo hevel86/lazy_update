@@ -7,7 +7,10 @@ This document provides context for the `lazy_update` project, a collection of op
 *   **Type:** Infrastructure as Code (Ansible)
 *   **Target OS:** Debian / Ubuntu / Raspberry Pi OS
 *   **Environment:** Proxmox clusters (3 nodes each at Home and Work), Raspberry Pi hardware, and Debian-based VMs/CTs.
-*   **Orchestration:** Optimized for **Semaphore UI** integration.
+    *   **Note:** Home environment includes 3 **Talos Linux** nodes which are **out of scope** for these playbooks (managed via K8s/Talos API).
+*   **Orchestration:** Optimized for **Semaphore UI**.
+    *   **Home Deployment:** Semaphore UI running in Kubernetes on **Talos Linux**.
+    *   **Work Deployment:** Semaphore UI running in a **Docker container**.
 *   **Key Features:**
     *   System-wide APT maintenance with automatic cleanup and reboot notifications.
     *   Idempotent Docker container lifecycle management via `docker_compose_v2`.
