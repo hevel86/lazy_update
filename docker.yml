@@ -4,48 +4,22 @@
   become: true
 
   tasks:
-    - name: Ensure Docker is installed
-      ansible.builtin.package:
+    - name: Install Python Docker SDK (Debian/Ubuntu)
+      ansible.builtin.apt:
+        name: python3-docker
+        state: present
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Verify Docker is active
+      ansible.builtin.service:
         name: docker
+        state: started
+        enabled: yes
+
+    - name: Pull and Start Docker Compose Stacks
+      community.docker.docker_compose_v2:
+        project_src: "{{ item }}"
         state: present
-      ignore_errors: yes
-
-    - name: Alternaitve Check if Docker is installed
-      ansible.builtin.command:
-        cmd: docker --version
-      register: docker_version
-      ignore_errors: yes
-
-    - name: Show Docker version
-      debug:
-        var: docker_version.stdout
-      when: docker_version.stdout is defined
-
-    - name: Ensure Docker Compose plugin is installed
-      ansible.builtin.package:
-        name: docker-compose-plugin
-        state: present
-      ignore_errors: yes
-
-    - name: Check Docker Compose version
-      ansible.builtin.command:
-        cmd: docker compose version
-      register: compose_version
-      ignore_errors: yes
-
-    - name: Show Docker Compose version
-      debug:
-        var: compose_version.stdout
-      when: compose_version.stdout is defined
-
-    - name: Pull latest images for each compose directory
-      ansible.builtin.command:
-        cmd: docker compose pull
-        chdir: "{{ item }}"
-      loop: "{{ compose_dirs }}"
-
-    - name: Start containers for each compose directory
-      ansible.builtin.command:
-        cmd: docker compose up -d
-        chdir: "{{ item }}"
+        pull: always
       loop: "{{ compose_dirs }}"
