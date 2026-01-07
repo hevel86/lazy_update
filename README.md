@@ -31,8 +31,9 @@ This repository hosts a collection of Ansible playbooks for automating server ma
 
 ### **NVIDIA Drivers** (`nvidia.yml`)
 [View Raw](https://raw.githubusercontent.com/hevel86/lazy_update/refs/heads/master/nvidia.yml)
-*   **Purpose:** GPU Driver management.
-*   **Actions:** Checks against recommended versions, updates drivers, and reboots if necessary.
+*   **Purpose:** Comprehensive GPU management.
+*   **Actions:** Detects GPU, installs recommended drivers, configures **NVIDIA Container Toolkit** (for Docker support), and applies compute optimizations (Persistence Mode, NVENC).
+*   **Variables:** `target_hosts`, `var_environment` (test/production), `var_reboot` (true/false).
 
 ---
 *Note: These playbooks rely on dynamic variables (like `target_hosts`) passed via the inventory or CI/CD environment (Semaphore).*
