@@ -10,7 +10,6 @@ This document provides context for the `lazy_update` project, a collection of An
     *   System-wide APT updates and reboots.
     *   Docker installation (via official script) and container lifecycle management (pull/up).
     *   NVIDIA driver updates.
-    *   Pi-hole synchronization via Gravity Sync.
     *   SSH key deployment.
 
 ## Key Files & Playbooks
@@ -31,10 +30,6 @@ This document provides context for the `lazy_update` project, a collection of An
 
 *   **`nvidia.yml`**: manages Nvidia drivers.
     *   **Actions:** Checks installed version vs recommended, updates drivers, and handles reboots.
-    *   **Variables:** `target_hosts`
-
-*   **`pihole.yml`**: Pi-hole maintenance.
-    *   **Actions:** Runs `pihole -up` and `gravity-sync`.
     *   **Variables:** `target_hosts`
 
 *   **`key-deploy.yml`**: SSH Key Management.

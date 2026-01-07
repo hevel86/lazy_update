@@ -34,16 +34,5 @@ This repository hosts a collection of Ansible playbooks for automating server ma
 *   **Purpose:** GPU Driver management.
 *   **Actions:** Checks against recommended versions, updates drivers, and reboots if necessary.
 
-### **Pi-hole Sync** (`pihole.yml`)
-[View Raw](https://raw.githubusercontent.com/hevel86/lazy_update/refs/heads/master/pihole.yml)
-*   **Purpose:** Pi-hole maintenance.
-*   **Actions:** Updates Pi-hole and runs `gravity-sync` to synchronize instances.
-
-## 📋 Requirements
-Ensure the necessary collections are installed:
-```bash
-ansible-galaxy collection install -r collections/requirements.yml
-```
-
 ---
 *Note: These playbooks rely on dynamic variables (like `target_hosts`) passed via the inventory or CI/CD environment (Semaphore).*
