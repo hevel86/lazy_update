@@ -5,7 +5,8 @@ This document provides context for the `lazy_update` project, a collection of op
 ## Project Overview
 
 *   **Type:** Infrastructure as Code (Ansible)
-*   **Target OS:** Debian / Ubuntu
+*   **Target OS:** Debian / Ubuntu / Raspberry Pi OS
+*   **Environment:** Proxmox clusters (3 nodes each at Home and Work), Raspberry Pi hardware, and Debian-based VMs/CTs.
 *   **Orchestration:** Optimized for **Semaphore UI** integration.
 *   **Key Features:**
     *   System-wide APT maintenance with automatic cleanup and reboot notifications.
