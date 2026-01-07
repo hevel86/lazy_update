@@ -1,0 +1,10 @@
+---
+- name: Pi-hole Maintenance
+  hosts: "{{ target_hosts }}"
+  become: true
+
+  tasks:
+    - name: Update Pi-hole
+      ansible.builtin.command: pihole -up
+      register: pihole_update
+      changed_when: "'Everything is up to date' not in pihole_update.stdout"
