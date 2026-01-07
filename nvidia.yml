@@ -1,80 +1,162 @@
 ---
-- name: Check and update Nvidia drivers based on environment
-  hosts: "{{ target_hosts }}"  # Dynamically populated by Semaphore UI
+# Robust NVIDIA Driver & Optimization Playbook
+# Handles Drivers, Docker Toolkit, and Compute Optimizations
+
+- name: NVIDIA Driver & Toolkit Management
+  hosts: "{{ target_hosts | default('all') }}"
   become: true
-
+  gather_facts: true
+  
+  vars:
+    # Defaults (can be overridden by Semaphore)
+    nvidia_driver_version: latest
+    var_reboot: "{{ var_reboot | default(false) }}"
+    var_environment: "{{ var_environment | default('test') }}"
+  
   tasks:
-    - name: Display the current environment mode
-      debug:
-        msg: >
-          {% if var_environment == "production" %}
-            "Running in PRODUCTION mode: Will install the driver if newer."
-          {% else %}
-            "Running in TEST mode: Will only print driver versions."
-          {% endif %}
-
-    - name: Update apt cache
-      apt:
-        update_cache: yes
-
-    - name: Get the currently installed Nvidia driver version
-      shell: dpkg -l | grep -oP 'nvidia-driver-\d+(-server)?' | head -1
-      register: current_driver_version
+    # --- PHASE 1: Detection ---
+    - name: Detect NVIDIA GPU
+      shell: lspci | grep -i nvidia
+      register: nvidia_check
       changed_when: false
+      failed_when: false
+      
+    - name: Set NVIDIA present fact
+      set_fact:
+        nvidia_present: "{{ nvidia_check.rc == 0 }}"
 
-    - name: Debug output of dpkg for Nvidia drivers
-      debug:
-        msg: "Raw output from dpkg command: {{ current_driver_version.stdout }}"
-
-    - name: Get the recommended Nvidia server driver version
-      shell: ubuntu-drivers devices | grep -oP '(nvidia-driver-\d+-server)' | tail -1
-      register: latest_driver_version
+    - name: Abort if no GPU found
+      meta: end_play
+      when: not nvidia_present
+      
+    - name: Check current driver status
+      command: nvidia-smi --query-gpu=driver_version --format=csv,noheader
+      register: current_driver_check
       changed_when: false
+      failed_when: false
 
-    - name: Debug output of ubuntu-drivers for Nvidia server drivers
-      debug:
-        msg: "Raw output from ubuntu-drivers command: {{ latest_driver_version.stdout }}"
-
-    - name: Extract current driver version number
+    - name: Set driver installed fact
       set_fact:
-        current_version_number: "{{ current_driver_version.stdout | regex_search('nvidia-driver-(\\d+)', '\\1') | int | default(0) }}"
+        driver_is_installed: "{{ current_driver_check.rc == 0 }}"
+        current_driver_version: "{{ current_driver_check.stdout | trim }}"
+      when: current_driver_check.rc == 0
 
-    - name: Extract latest driver version number
-      set_fact:
-        latest_version_number: "{{ latest_driver_version.stdout | regex_search('nvidia-driver-(\\d+)', '\\1') | int | default(0) }}"
+    # --- PHASE 2: Driver Installation (Production Only) ---
+    - name: Identify Recommended Driver
+      shell: ubuntu-drivers devices | grep "recommended" | awk '{print $3}'
+      register: recommended_driver
+      changed_when: false
+      when: var_environment == "production"
 
-    - name: Debug the current Nvidia driver version
-      debug:
-        msg: "Current Nvidia driver version: {{ current_driver_version.stdout }} (version: {{ current_version_number }})"
-
-    - name: Debug the latest Nvidia server driver version
-      debug:
-        msg: "Latest Nvidia server driver version: {{ latest_driver_version.stdout }} (version: {{ latest_version_number }})"
-
-    - name: Compare current and latest Nvidia driver versions
-      debug:
-        msg: >
-          {% if current_version_number >= latest_version_number %}
-            "The installed Nvidia driver ({{ current_driver_version.stdout }}) is up to date."
-          {% else %}
-            "A newer Nvidia driver version is available: {{ latest_driver_version.stdout }} (current: {{ current_driver_version.stdout }})"
-          {% endif %}
-
-    - name: Install the latest Nvidia server driver if newer and environment is production
+    - name: Install Dependencies
       apt:
-        name: "{{ latest_driver_version.stdout }}"
+        name:
+          - software-properties-common
+          - ubuntu-drivers-common
+          - build-essential
+          - dkms
+          - curl
+          - ca-certificates
+          - gnupg
         state: present
-      when:
-        - var_environment == "production"
-        - current_version_number < latest_version_number
-      register: driver_installed
+        update_cache: yes
+      when: var_environment == "production"
 
-    - name: Reboot the server if a new driver was installed and var_reboot is true
-      reboot:
-        msg: "Rebooting after Nvidia driver installation"
-        connect_timeout: 5
-        reboot_timeout: 600
-      when:
+    - name: Add Graphics Drivers PPA
+      apt_repository:
+        repo: ppa:graphics-drivers/ppa
+        state: present
+      when: var_environment == "production"
+
+    - name: Install/Update NVIDIA Driver
+      apt:
+        name: "{{ recommended_driver.stdout }}"
+        state: present
+      register: driver_install_result
+      when: 
         - var_environment == "production"
-        - driver_installed.changed
-        - var_reboot | bool
+        - recommended_driver.stdout is defined
+        - recommended_driver.stdout != ""
+      notify: Check Reboot Requirement
+
+    # --- PHASE 3: Docker Toolkit (If Docker exists) ---
+    - name: Check for Docker
+      command: which docker
+      register: docker_check
+      changed_when: false
+      failed_when: false
+
+    - name: Configure NVIDIA Container Toolkit
+      block:
+        - name: Add NVIDIA GPG Key
+          shell: |
+            curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+          args:
+            creates: /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+
+        - name: Add NVIDIA Repository
+          template:
+            src: /dev/null
+            dest: /etc/apt/sources.list.d/nvidia-container-toolkit.list
+            # Using shell to generate content dynamically as per official docs
+          ignore_errors: true
+
+        - name: Configure Repository List
+          shell: |
+            curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
+            sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
+            sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+          args:
+            creates: /etc/apt/sources.list.d/nvidia-container-toolkit.list
+
+        - name: Install Container Toolkit
+          apt:
+            name: nvidia-container-toolkit
+            state: present
+            update_cache: yes
+
+        - name: Configure Docker Runtime
+          command: nvidia-ctk runtime configure --runtime=docker
+          register: ctk_config
+          changed_when: ctk_config.rc == 0
+          notify: Restart Docker
+
+      when: 
+        - var_environment == "production"
+        - docker_check.rc == 0
+        - driver_is_installed or driver_install_result.changed
+
+    # --- PHASE 4: Optimizations ---
+    - name: Enable Persistence Mode (Faster Response)
+      systemd:
+        name: nvidia-persistenced
+        enabled: yes
+        state: started
+      ignore_errors: yes
+      when: 
+        - var_environment == "production"
+        - driver_is_installed or driver_install_result.changed
+
+    - name: Set NVENC Options (Transcoding)
+      lineinfile:
+        path: /etc/modprobe.d/nvidia.conf
+        line: "options nvidia NVreg_RestrictProfilingToAdminUsers=0"
+        create: yes
+        mode: '0644'
+      when: var_environment == "production"
+
+handlers:
+  - name: Restart Docker
+    systemd:
+      name: docker
+      state: restarted
+
+  - name: Check Reboot Requirement
+    debug:
+      msg: "NOTE: Driver updated. Reboot might be required."
+    when: var_reboot | bool == false
+
+  - name: Reboot System
+    reboot:
+      reboot_timeout: 600
+    when: var_reboot | bool
