@@ -1,27 +1,49 @@
-# Ansible Playbooks Overview
+# Lazy Update Ansible Playbooks
 
-This repository contains several Ansible playbooks designed to automate system configuration and service deployments. Below is an overview of each playbook and its purpose, with links to the raw files.
+This repository hosts a collection of Ansible playbooks for automating server maintenance, Docker container management, and specific service updates. These playbooks are designed to be flexible and are optimized for use with **Semaphore UI** on Debian/Ubuntu systems.
 
-## Docker Ansible Playbook
+## 📦 Docker Management
 
-[View `docker.yml` (Raw)](https://raw.githubusercontent.com/hevel86/lazy_update/refs/heads/master/docker.yml)
+### **Deploy & Update Containers** (`docker.yml`)
+[View Raw](https://raw.githubusercontent.com/hevel86/lazy_update/refs/heads/master/docker.yml)
+*   **Purpose:** Updates running Docker Compose stacks.
+*   **Actions:** Installs the Python Docker SDK, pulls the latest images, and restarts containers only if changes are detected (idempotent).
+*   **Variables:** `target_hosts`, `compose_dirs` (list of directories containing `docker-compose.yml`).
 
-This playbook installs Docker and Docker Compose, pulls the latest Docker images, and starts the containers for each specified Docker Compose directory.
+### **Install Docker** (`docker-install.yml`)
+[View Raw](https://raw.githubusercontent.com/hevel86/lazy_update/refs/heads/master/docker-install.yml)
+*   **Purpose:** Fresh installation of Docker.
+*   **Actions:** Uses the official `get.docker.com` script to install Docker and the Compose plugin.
 
-## NVIDIA Drivers Ansible Playbook
+## 🛠 System Maintenance
 
-[View `nvidia.yml` (Raw)](https://raw.githubusercontent.com/hevel86/lazy_update/refs/heads/master/nvidia.yml)
+### **System Updates** (`site.yml`)
+[View Raw](https://raw.githubusercontent.com/hevel86/lazy_update/refs/heads/master/site.yml)
+*   **Purpose:** General server maintenance.
+*   **Actions:** Updates APT cache, performs `dist-upgrade`, cleans up unused packages, and handles required reboots.
 
-This playbook manages NVIDIA driver installation. It checks if the recommended version is installed and updates it if necessary, with an optional reboot.
+### **SSH Key Deployment** (`key-deploy.yml`)
+[View Raw](https://raw.githubusercontent.com/hevel86/lazy_update/refs/heads/master/key-deploy.yml)
+*   **Purpose:** User access management.
+*   **Actions:** Adds a specific public SSH key to the target user's `authorized_keys`.
 
-## Pi-hole Ansible Playbook
+## ⚡ Service Specific
 
-[View `pihole.yml` (Raw)](https://raw.githubusercontent.com/hevel86/lazy_update/refs/heads/master/pihole.yml)
+### **NVIDIA Drivers** (`nvidia.yml`)
+[View Raw](https://raw.githubusercontent.com/hevel86/lazy_update/refs/heads/master/nvidia.yml)
+*   **Purpose:** GPU Driver management.
+*   **Actions:** Checks against recommended versions, updates drivers, and reboots if necessary.
 
-This playbook updates Pi-hole and runs the Gravity Sync command to synchronize Pi-hole instances.
+### **Pi-hole Sync** (`pihole.yml`)
+[View Raw](https://raw.githubusercontent.com/hevel86/lazy_update/refs/heads/master/pihole.yml)
+*   **Purpose:** Pi-hole maintenance.
+*   **Actions:** Updates Pi-hole and runs `gravity-sync` to synchronize instances.
 
-## Site Deployment Ansible Playbook
+## 📋 Requirements
+Ensure the necessary collections are installed:
+```bash
+ansible-galaxy collection install -r collections/requirements.yml
+```
 
-[View `site.yml` (Raw)](https://raw.githubusercontent.com/hevel86/lazy_update/refs/heads/master/site.yml)
-
-This playbook performs system maintenance tasks, including updating the APT package cache, upgrading all packages, and cleaning up unnecessary ones.
+---
+*Note: These playbooks rely on dynamic variables (like `target_hosts`) passed via the inventory or CI/CD environment (Semaphore).*
