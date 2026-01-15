@@ -1,0 +1,31 @@
+---
+- name: Technitium DNS Maintenance
+  hosts: "{{ target_hosts | default('dns') }}"
+  become: true
+  vars:
+    install_dir: "/opt/technitium-dns"
+    # URL confirmed from the Proxmox community install script
+    download_url: "https://download.technitium.com/dns/DnsServerPortable.tar.gz"
+    service_name: "technitium-dns"
+
+  tasks:
+    - name: Stop Technitium DNS service
+      ansible.builtin.systemd:
+        name: "{{ service_name }}"
+        state: stopped
+      register: service_stopped
+
+    - name: Update Technitium DNS (Download & Extract)
+      ansible.builtin.unarchive:
+        src: "{{ download_url }}"
+        dest: "{{ install_dir }}"
+        remote_src: yes
+        owner: root
+        group: root
+      when: service_stopped is succeeded
+
+    - name: Start Technitium DNS service
+      ansible.builtin.systemd:
+        name: "{{ service_name }}"
+        state: started
+        daemon_reload: yes
