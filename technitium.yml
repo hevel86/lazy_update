@@ -10,7 +10,7 @@
 
   tasks:
     - name: Get latest Technitium version
-      ansible.builtin.shell: "curl -fsSL https://technitium.com/dns/ | grep -oP 'Version \\K[\\d.]+'"
+      ansible.builtin.shell: "curl -fsSL https://technitium.com/dns/ | sed -n 's/.*Version \\([0-9.]\\+\\).*/\\1/p'"
       register: latest_version_check
       changed_when: false
       run_once: true
