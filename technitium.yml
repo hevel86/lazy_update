@@ -16,6 +16,7 @@
       changed_when: false
       run_once: true
       delegate_to: localhost
+      become: false
 
     - name: Get installed Technitium version
       ansible.builtin.command: "cat {{ version_file }}"
