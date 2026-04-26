@@ -7,7 +7,6 @@
     install_dir: "/opt/technitium/dns"
     version_file: "/root/.technitium"
     download_url: "https://download.technitium.com/dns/DnsServerPortable.tar.gz"
-    service_name: "technitium"
 
   tasks:
     - name: Get latest Technitium version
@@ -29,11 +28,21 @@
         latest_version: "{{ latest_version_check.stdout | trim }}"
         installed_version: "{{ installed_version_check.stdout | trim | default('0.0.0', true) }}"
 
-    - name: Display versions
-      ansible.builtin.debug:
-        msg: "Host: {{ inventory_hostname }} | Installed: {{ installed_version }} | Latest: {{ latest_version }}"
+    - name: Detect active Technitium service name
+      ansible.builtin.shell: "systemctl list-units --type=service --state=active | grep -E '(technitium|dns).service' | awk '{print $1}' | head -n 1 | sed 's/.service//'"
+      register: detected_service
+      changed_when: false
+      failed_when: false
 
-    - name: Ensure .NET 10 Runtime is installed
+    - name: Set service name fact
+      ansible.builtin.set_fact:
+        service_name: "{{ detected_service.stdout | default('dns', true) }}"
+
+    - name: Display environment info
+      ansible.builtin.debug:
+        msg: "Host: {{ inventory_hostname }} | Installed: {{ installed_version }} | Latest: {{ latest_version }} | Service: {{ service_name }}"
+
+    - name: Ensure .NET 10 Runtime and ICU are installed
       block:
         - name: Check if .NET 10 is installed
           ansible.builtin.shell: "dotnet --list-runtimes | grep 'Microsoft.NETCore.App 10.0'"
@@ -41,8 +50,14 @@
           failed_when: false
           changed_when: false
 
-        - name: Install .NET 10 Runtime if missing
+        - name: Install dependencies if .NET 10 is missing
           block:
+            - name: Install ICU package (Debian/Ubuntu)
+              ansible.builtin.apt:
+                name: libicu-dev
+                state: present
+                update_cache: yes
+
             - name: Download Microsoft repository configuration
               ansible.builtin.get_url:
                 url: "https://packages.microsoft.com/config/{{ ansible_distribution | lower }}/{{ (ansible_distribution == 'Debian') | ternary(ansible_distribution_major_version, ansible_distribution_version) }}/packages-microsoft-prod.deb"
@@ -103,7 +118,7 @@
           ansible.builtin.uri:
             url: "http://127.0.0.1:5380"
             status_code: 200
-            timeout: 10
+            timeout: 15
           register: health_check
           retries: 5
           delay: 5
